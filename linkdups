@@ -6,7 +6,7 @@
 
 import os
 import sys
-import md5
+import hashlib
 import string
 import filecmp
 import optparse
@@ -42,7 +42,7 @@ def record_size_match(path):
 
 def record_checksum_match(path, files):
     fd = open(path)
-    csum = md5.new()
+    csum = hashlib.md5.new()
     for line in fd:
         csum.update(line)
     fd.close()
