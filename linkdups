@@ -42,7 +42,7 @@ def record_size_match(path):
 
 def record_checksum_match(path, files):
     fd = open(path)
-    csum = hashlib.md5.new()
+    csum = hashlib.md5()
     for line in fd:
         csum.update(line)
     fd.close()
