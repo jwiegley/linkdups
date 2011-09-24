@@ -173,25 +173,26 @@ else:
     paths = ["."]
 
 for path in paths:
-    if not isdir(path):
+    if isfile(path):
+        record_size_match(entry)
+    elif not isdir(path):
         print "%s is not a directory!" % path
-        continue
+    else:
+        if options.verbose:
+            print ".. Scanning for large files in %s" % path
+        maximum_size = -1
+        minimum_size = 16 * 1024
+        find_matches(path, 0)
+        if options.verbose:
+            print ":: Scanned %d files for size matches" % len(files.items())
 
-    if options.verbose:
-        print ".. Scanning for large files in %s" % path
-    maximum_size = -1
-    minimum_size = 16 * 1024
-    find_matches(path, 0)
-    if options.verbose:
-        print ":: Scanned %d files for size matches" % len(files.items())
-
-    if options.verbose:
-        print ".. Scanning for small files in %s" % path
-    maximum_size = 16 * 1024
-    minimum_size = -1
-    find_matches(path, 0)
-    if options.verbose:
-        print ":: Scanned %d files for size matches" % len(files.items())
+        if options.verbose:
+            print ".. Scanning for small files in %s" % path
+        maximum_size = 16 * 1024
+        minimum_size = -1
+        find_matches(path, 0)
+        if options.verbose:
+            print ":: Scanned %d files for size matches" % len(files.items())
 
 try:
     link_duplicates()
