@@ -60,6 +60,9 @@ def find_matches(path, depth):
     if depth <= 1 and options.verbose:
         print ".. Scanning for entries in %s" % path
     for entry in entries:
+        if entry.endswith(".dtBase2") or entry.endswith(".sparsebundle") :
+            continue
+
         counter += 1
         if counter % 10000 == 0 and options.verbose:
             print ".. Scanned %d entries" % counter
