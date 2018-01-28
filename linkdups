@@ -21,7 +21,10 @@ maximum_size = -1
 parser = optparse.OptionParser()
 parser.add_option("-v", "--verbose",
                   action="store_true", dest="verbose", default=False,
-                  help="report activity options.verbosely")
+                  help="report activity verbosely")
+parser.add_option("-n", "--dry-run",
+                  action="store_true", dest="dry_run", default=False,
+                  help="make no changes to disk")
 
 (options, args) = parser.parse_args()
 
@@ -146,11 +149,16 @@ def link_duplicates():
                     continue
 
                 try:
-                    os.remove(file)
+                    if options.dry_run:
+                        print "os.remove(\"%s\")" % file
+                    else:
+                        os.remove(file)
                 finally:
                     # In case the users presses Control-C right between removing
                     # and linking
-                    if not os.path.exists(file):
+                    if options.dry_run:
+                        print "os.link(%s, %s)" % (referent, file)
+                    elif not os.path.exists(file):
                         os.link(referent, file)
 
                 bytes_saved += info[ST_SIZE]
