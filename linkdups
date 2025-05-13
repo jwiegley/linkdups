@@ -10,23 +10,36 @@ import hashlib
 import string
 import filecmp
 import optparse
+import shutil
+import subprocess
 
 from os.path import *
 from stat import *
 
-files        = {}
+files = {}
 minimum_size = -1
 maximum_size = -1
 
 parser = optparse.OptionParser()
-parser.add_option("-v", "--verbose",
-                  action="store_true", dest="verbose", default=False,
-                  help="report activity verbosely")
-parser.add_option("-n", "--dry-run",
-                  action="store_true", dest="dry_run", default=False,
-                  help="make no changes to disk")
+parser.add_option(
+    "-v",
+    "--verbose",
+    action="store_true",
+    dest="verbose",
+    default=False,
+    help="report activity verbosely",
+)
+parser.add_option(
+    "-n",
+    "--dry-run",
+    action="store_true",
+    dest="dry_run",
+    default=False,
+    help="make no changes to disk",
+)
 
 (options, args) = parser.parse_args()
+
 
 def record_size_match(path):
     size = os.lstat(path)[ST_SIZE]
@@ -43,42 +56,65 @@ def record_size_match(path):
     else:
         files[size].append(path)
 
-def record_checksum_match(path, files):
-    csum = hashlib.sha512()
-    with open(path, "rb") as file:
-        for chunk in iter(lambda: file.read(4096), b""):
-            csum.update(chunk)
 
-    digest = csum.hexdigest()
+def record_checksum_match(path, files):
+    # Check if sha512sum is available on PATH
+    if shutil.which("b3sum"):
+        try:
+            # Shell out to sha512sum
+            result = subprocess.run(
+                ["b3sum", path], capture_output=True, text=True, check=True
+            )
+            # Extract just the hash from the output (format: "hash filename")
+            digest = result.stdout.split()[0]
+        except (subprocess.SubprocessError, IndexError):
+            # Fall back to Python implementation if something goes wrong
+            digest = compute_checksum_python(path)
+    else:
+        # Use pure Python implementation
+        digest = compute_checksum_python(path)
+
     if digest not in files:
         files[digest] = [path]
     else:
         files[digest].append(path)
 
+
+def compute_checksum_python(path):
+    csum = hashlib.sha512()
+    with open(path, "rb") as file:
+        for chunk in iter(lambda: file.read(4096), b""):
+            csum.update(chunk)
+    return csum.hexdigest()
+
+
 counter = 0
+
+
 def find_matches(path, depth):
     global counter
     entries = os.listdir(path)
     if depth <= 1 and options.verbose:
         print(".. Scanning for entries in %s" % path)
     for entry in entries:
-        if entry.endswith(".dtBase2") or entry.endswith(".sparsebundle") :
+        if entry.endswith(".dtBase2") or entry.endswith(".sparsebundle"):
             continue
 
         counter += 1
         if counter % 10000 == 0 and options.verbose:
             print(".. Scanned %d entries" % counter)
 
-        entry = join(path, entry)
+        entry = os.path.join(path, entry)
 
         mode = os.lstat(entry)[ST_MODE]
-        if S_ISDIR(mode) and \
-           entry not in ("/proc" "/dev" "/sys" "/mnt"):
+        if S_ISDIR(mode) and entry not in ("/proc" "/dev" "/sys" "/mnt"):
             find_matches(entry, depth + 1)
         elif S_ISREG(mode):
             record_size_match(entry)
 
+
 bytes_saved = 0
+
 
 def link_duplicates():
     global bytes_saved
@@ -92,8 +128,10 @@ def link_duplicates():
             continue
 
         if options.verbose:
-            print(".. Scanning %d files of size %d for checksum matches" % \
-                  (len(value), key))
+            print(
+                ".. Scanning %d files of size %d for checksum matches"
+                % (len(value), key)
+            )
 
         subfiles = {}
         for file in value:
@@ -105,11 +143,12 @@ def link_duplicates():
                 continue
 
             if options.verbose:
-                print(" --> Found a group of %d files of size %d, based on SHA-512" % \
-                      (len(value), size))
+                print(
+                    " --> Found a group of %d files of size %d, based on SHA-512"
+                    % (len(value), size)
+                )
 
-            fileInfo  = {}
-            referent  = None
+            referent = None
             unmatched = 0
 
             for file in value:
@@ -123,7 +162,9 @@ def link_duplicates():
                 continue
 
             if options.verbose:
-                print("   ==> of these, %d of the matching files are unpaired" % unmatched)
+                print(
+                    "   ==> of these, %d of the matching files are unpaired" % unmatched
+                )
 
             if not referent:
                 referent = value[0]
@@ -137,8 +178,8 @@ def link_duplicates():
                 # misses matches between disparate groups, however, such as
                 # when Time Machine re-dup's a file after you change its
                 # permissions.
-                #info = statInfo(file)
-                #if info[ST_NLINK] > 1:
+                # info = statInfo(file)
+                # if info[ST_NLINK] > 1:
                 #    continue
 
                 # Before really deleting the file, verify that it's byte-wise
@@ -148,7 +189,7 @@ def link_duplicates():
 
                 try:
                     if options.dry_run:
-                        print("os.remove(\"%s\")" % file)
+                        print('os.remove("%s")' % file)
                     else:
                         os.remove(file)
                 finally:
@@ -166,6 +207,7 @@ def link_duplicates():
                         first = False
                     print("       %s" % file)
 
+
 def bytestring(amount):
     if amount < 1024:
         return "%d bytes" % amount
@@ -176,15 +218,16 @@ def bytestring(amount):
     elif amount < 1024 * 1024 * 1024 * 1024:
         return "%.2f GiB" % (amount / (1024.0 * 1024.0 * 1024.0))
 
+
 if len(args) > 0:
     paths = args
 else:
     paths = ["."]
 
 for path in paths:
-    if isfile(path):
+    if os.path.isfile(path):
         record_size_match(entry)
-    elif not isdir(path):
+    elif not os.path.isdir(path):
         print("%s is not a directory!" % path)
     else:
         if options.verbose:
