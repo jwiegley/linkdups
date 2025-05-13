@@ -144,7 +144,7 @@ def link_duplicates():
 
             if options.verbose:
                 print(
-                    " --> Found a group of %d files of size %d, based on SHA-512"
+                    " --> Found a group of %d files of size %d, based on checksum"
                     % (len(value), size)
                 )
 
