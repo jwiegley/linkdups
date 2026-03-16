@@ -1,0 +1,24 @@
+pre-commit:
+  parallel: true
+  commands:
+    ruff-format:
+      glob: "{src,tests,scripts}/**/*.py"
+      run: ruff format --check {staged_files}
+    ruff-lint:
+      glob: "{src,tests,scripts}/**/*.py"
+      run: ruff check {staged_files}
+    mypy:
+      glob: "{src,tests}/**/*.py"
+      run: PYTHONPATH=src mypy src/linkdups/
+    nix-build:
+      run: nix build --no-warn-dirty 2>&1
+    pytest:
+      glob: "{src,tests}/**/*.py"
+      run: PYTHONPATH=src python -m pytest tests/ -x -q --cov=linkdups --cov-report=term-missing --cov-fail-under=80
+    pytest-benchmark:
+      glob: "{src,tests}/**/*.py"
+      run: |
+        PYTHONPATH=src python -m pytest tests/test_benchmark.py -x -q \
+          --benchmark-json=/tmp/linkdups-bench.json \
+          --benchmark-only && \
+        python scripts/check_perf.py /tmp/linkdups-bench.json
